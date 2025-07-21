@@ -1,0 +1,5 @@
+{
+  "ocr": {
+    "preferred_engine": "azure_ocr"
+  }
+}
