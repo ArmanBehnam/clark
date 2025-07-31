@@ -13,8 +13,8 @@ from core.exceptions import ConfigurationError, MissingConfigurationError, Inval
 @dataclass
 class OCRConfig:
     preferred_engine: str = "aws_textract"
-    fallback_engines: List[str] = field(default_factory=lambda: [
-        "azure_ocr", "claude_ocr", "mistral_ocr", "tesseract", "opencv"
+    fallback_engines: List[str] = field(default_factory=lambda: [   # "azure_ocr",
+         "claude_ocr", "mistral_ocr", "tesseract", "opencv"
     ])
     confidence_threshold: float = 0.5
     timeout_seconds: int = 120
@@ -28,7 +28,6 @@ class OCRConfig:
     azure_endpoint: Optional[str] = None
     azure_api_key: Optional[str] = None
 
-    # ADD THESE CLAUDE FIELDS:
     claude_model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
     claude_max_tokens: int = 4000
 
@@ -187,10 +186,10 @@ class ConfigManager(ConfigurationManager):
         if os.getenv("TESSERACT_CMD"):
             self.config.ocr.tesseract_cmd = os.getenv("TESSERACT_CMD")
 
-        if os.getenv("AZURE_DOCUMENT_ENDPOINT"):
-            self.config.ocr.azure_endpoint = os.getenv("AZURE_DOCUMENT_ENDPOINT")
-        if os.getenv("AZURE_DOCUMENT_KEY"):
-            self.config.ocr.azure_api_key = os.getenv("AZURE_DOCUMENT_KEY")
+        if os.getenv("AZURE_ENDPOINT"):
+            self.config.ocr.azure_endpoint = os.getenv("AZURE_ENDPOINT")
+        if os.getenv("AZURE_API_KEY"):
+            self.config.ocr.azure_api_key = os.getenv("AZURE_API_KEY")
 
         if os.getenv("MISTRAL_API_KEY"):
             self.config.ocr.mistral_api_key = os.getenv("MISTRAL_API_KEY")

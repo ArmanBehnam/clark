@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import numpy as np
+from utils.text_utils import TextProcessor
 
 from core.interfaces import OCREngine
 from core.models import ExtractedElement, BoundingBox, ElementType
@@ -364,7 +365,9 @@ class OCRResultProcessor:
 
             filtered.append(element)
 
-        return filtered
+        return TextProcessor.filter_low_quality_elements(
+            elements, min_confidence, min_text_length
+        )
 
     @staticmethod
     def sort_reading_order(elements: List[ExtractedElement]) -> List[ExtractedElement]:

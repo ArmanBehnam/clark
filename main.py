@@ -6,6 +6,7 @@ import json
 
 from utils.help import PDFProcessor, EnhancedPDFProcessor
 
+
 class MenuInterface:
     def __init__(self):
         self.processor = None
@@ -369,7 +370,14 @@ class MenuInterface:
 
             if result.extracted_text:
                 preview = result.extracted_text[:300]
-                print(f"\nText Preview:\n{preview}...")
+                print(f"\nText Preview:\n{preview}")
+
+            try:
+                output_file = self.current_pdf.parent / f"{self.current_pdf.stem}_azure_result.json"
+                self.processor.save_result(result, output_file)
+                print(f"\nAzure results saved to: {output_file.name}")
+            except Exception as save_error:
+                print(f"Warning: Could not save Azure result: {save_error}")
 
         except Exception as e:
             print(f"Azure OCR failed: {e}")
@@ -398,7 +406,14 @@ class MenuInterface:
 
             if result.extracted_text:
                 preview = result.extracted_text[:300]
-                print(f"\nText Preview:\n{preview}...")
+                print(f"\nText Preview:\n{preview}")
+
+            try:
+                output_file = self.current_pdf.parent / f"{self.current_pdf.stem}_claude_result.json"
+                self.processor.save_result(result, output_file)
+                print(f"\nClaude results saved to: {output_file.name}")
+            except Exception as save_error:
+                print(f"Warning: Could not save Claude result: {save_error}")
 
         except Exception as e:
             print(f"Claude OCR failed: {e}")

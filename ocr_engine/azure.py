@@ -6,6 +6,12 @@ import cv2
 from ocr_engine.base import BaseOCREngine
 from core.models import ExtractedElement, BoundingBox, ElementType
 from core.exceptions import OCRCredentialsError, OCRConfigurationError, OCRExtractionError, DependencyError
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
+
+
 
 logger = logging.getLogger(__name__)
 
@@ -13,14 +19,26 @@ logger = logging.getLogger(__name__)
 class AzureOCREngine(BaseOCREngine):
 
     def __init__(self):
-        super().__init__("azure_ocr", priority=15)
+        super().__init__("azure_ocr", priority=1)
         self._azure_client = None
         self._initialize_client()
 
     def _initialize_client(self) -> None:
         try:
+            import os
+            import ssl
+            import urllib3
+            import requests
             from azure.ai.formrecognizer import DocumentAnalysisClient
             from azure.core.credentials import AzureKeyCredential
+            from azure.core.pipeline.transport import RequestsTransport
+
+            # Global SSL bypass
+            os.environ['PYTHONHTTPSVERIFY'] = '0'
+            os.environ['CURL_CA_BUNDLE'] = ''
+            os.environ['REQUESTS_CA_BUNDLE'] = ''
+            ssl._create_default_https_context = ssl._create_unverified_context
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
             endpoint = self.config.get('ocr.azure_endpoint')
             api_key = self.config.get('ocr.azure_api_key')
@@ -30,9 +48,31 @@ class AzureOCREngine(BaseOCREngine):
                 self._is_configured = False
                 return
 
+            # Create custom session with SSL verification disabled
+            session = requests.Session()
+            session.verify = False
+            session.trust_env = False
+
+            # Custom SSL context
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+
+            # Custom adapter with SSL bypass
+            class NoSSLAdapter(requests.adapters.HTTPAdapter):
+                def init_poolmanager(self, *args, **kwargs):
+                    kwargs['ssl_context'] = ssl_context
+                    return super().init_poolmanager(*args, **kwargs)
+
+            session.mount('https://', NoSSLAdapter())
+
+            # Create transport with custom session
+            transport = RequestsTransport(session=session)
+
             self._azure_client = DocumentAnalysisClient(
                 endpoint=endpoint,
-                credential=AzureKeyCredential(api_key)
+                credential=AzureKeyCredential(api_key),
+                transport=transport
             )
 
             self._is_configured = True
@@ -41,10 +81,10 @@ class AzureOCREngine(BaseOCREngine):
         except ImportError:
             logger.error("Azure SDK not found. Install with: pip install azure-ai-formrecognizer")
             raise DependencyError("azure-ai-formrecognizer", "pip install azure-ai-formrecognizer")
-
         except Exception as e:
             logger.error(f"Failed to initialize Azure client: {e}")
             self._is_configured = False
+
 
     def _check_availability(self) -> Tuple[bool, str]:
         if not self._is_configured or not self._azure_client:
@@ -187,35 +227,6 @@ class AzureOCREngine(BaseOCREngine):
 
         return elements
 
-    def extract_tables(self, image: np.ndarray, page_num: int) -> List[Dict[str, Any]]:
-        if not self.is_available():
-            return []
-
-        try:
-            processed_image = self._prepare_image_for_azure(image)
-            if processed_image is None:
-                return []
-
-            success, buffer = cv2.imencode('.png', processed_image)
-            if not success:
-                return []
-
-            image_bytes = buffer.tobytes()
-
-            poller = self._azure_client.begin_analyze_document(
-                model_id="prebuilt-layout",
-                document=image_bytes
-            )
-
-            result = poller.result()
-            tables = self._process_azure_tables(result, processed_image.shape, page_num)
-
-            logger.debug(f"Azure extracted {len(tables)} tables from page {page_num}")
-            return tables
-
-        except Exception as e:
-            logger.warning(f"Table extraction failed with Azure: {e}")
-            return []
 
     def _process_azure_tables(self, result, image_shape: Tuple[int, int], page_num: int) -> List[Dict[str, Any]]:
         tables = []

@@ -22,6 +22,7 @@ from extractors.pdf_extractor import create_pdf_extractor
 from processors.spatial_analyzer import create_spatial_analyzer
 from processors.document_classifier import create_document_classifier
 from utils.logging_utils import setup_logging
+from exporters.json_exporter import JSONExporter
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +83,6 @@ class PDFProcessor(ProcessingPipeline):
         self._stages = [
             PDFTextStage(self.pdf_extractor),
             OCRStage(self.ocr_registry, self.image_processor),
-            # TableStage(self.table_extractor, self.image_processor),
             PatternStage(self.pattern_processor),
             SpatialStage(self.spatial_analyzer),
             ClassificationStage(self.document_classifier),
@@ -203,8 +203,9 @@ class PDFProcessor(ProcessingPipeline):
                 logger.info(f"Processing batch file: {pdf_file.name}")
                 result = self.process(pdf_file, **kwargs)
                 output_file = output_dir / f"{pdf_file.stem}_result.json"
-                self.save_result(result, output_file)
-
+                # self.save_result(result, output_file)
+                exporter = JSONExporter()
+                exporter.export(result, output_file)
                 results['successful'] += 1
                 results['results'].append({
                     'file': pdf_file.name,
@@ -222,11 +223,6 @@ class PDFProcessor(ProcessingPipeline):
 
         logger.info(f"Batch processing completed: {results['successful']}/{len(pdf_files)} successful")
         return results
-
-    def save_result(self, result: ExtractionResult, output_path: Path) -> None:
-        exporter = create_json_exporter()
-        exporter.export(result, output_path)
-        logger.debug(f"Result saved to: {output_path}")
 
     def add_stage(self, stage, position: Optional[int] = None) -> None:
         if position is None:
@@ -261,10 +257,9 @@ class PDFProcessor(ProcessingPipeline):
                 'image_processor': bool(self.image_processor),
                 'pattern_processor': bool(self.pattern_processor),
                 'pdf_extractor': bool(self.pdf_extractor),
-                'table_extractor': bool(self.table_extractor),
                 'spatial_analyzer': bool(self.spatial_analyzer),
                 'document_classifier': bool(self.document_classifier)
-            }
+}
         }
 
 
@@ -279,7 +274,8 @@ class EnhancedPDFProcessor(PDFProcessor):
         return [
             'STRUCTURAL STEEL NOTES',
             'DESIGN CRITERIA',
-            'GENERAL STRUCTURAL NOTES'
+            'DESIGN LOADS'
+            # 'GENERAL STRUCTURAL NOTES'
         ]
 
     def process_with_page_results(self, input_path: Path, **kwargs) -> Dict[str, Any]:
@@ -292,21 +288,13 @@ class EnhancedPDFProcessor(PDFProcessor):
         logger.info(f"Starting processing: {input_path.name} (ID: {document_id})")
 
         try:
-            # Run normal processing
             result = self.process(input_path, **kwargs)
-
-            # Generate page-level results
-            page_results = self._generate_page_results(result)
-
-            # Filter pages with target keywords
+            page_results = self._generate_page_results(result, input_path)
             filtered_pages = self._filter_pages_by_keywords(page_results)
-
-            # FALLBACK: If no keywords found, extract all text from all pages
             if not filtered_pages:
-                logger.info("No target keywords found. Extracting all text as fallback.")
+                logger.info("No target keywords found.")
                 filtered_pages = self._extract_all_pages_as_fallback(page_results)
 
-            # Create output
             enhanced_result = {
                 'document_info': {
                     'document_id': document_id,
@@ -332,13 +320,11 @@ class EnhancedPDFProcessor(PDFProcessor):
         except Exception as e:
             processing_time = time.time() - start_time
             logger.error(f"Processing failed for {input_path.name} after {processing_time:.2f}s: {e}")
-            # Fix: Use correct ProcessingError constructor
             raise ProcessingError("pipeline", document_id, str(e))
 
-    def _generate_page_results(self, result: ExtractionResult) -> List[Dict[str, Any]]:
-        page_results = []
+    def _generate_page_results(self, result: ExtractionResult, input_path: Path) -> List[Dict[str, Any]]:
 
-        # Initialize page data structure
+        page_results = []
         pages_data = {}
         for page_num in range(1, result.total_pages + 1):
             pages_data[page_num] = {
@@ -350,71 +336,91 @@ class EnhancedPDFProcessor(PDFProcessor):
                 'element_count': 0,
                 'confidence_avg': 0.0
             }
-
-        # If result.extracted_text exists but no elements, use PDF text
-        if result.extracted_text and not result.elements:
-            text_chunks = self._split_text_by_pages(result.extracted_text, result.total_pages)
+        if result.extracted_text and len(result.extracted_text.strip()) > 100:
+            text_chunks = self._split_text_by_pages(result.extracted_text, result.total_pages, input_path)
             for page_num, text_chunk in enumerate(text_chunks, 1):
                 if page_num in pages_data:
                     pages_data[page_num]['extracted_text'] = text_chunk
                     pages_data[page_num]['element_count'] = 1
-                    pages_data[page_num]['confidence_avg'] = 0.8
+                    pages_data[page_num]['confidence_avg'] = 0.9
+            use_ocr = False
+        else:
+            use_ocr = True
+        if use_ocr and result.elements:
+            high_quality_elements = [
+                elem for elem in result.elements
+                if elem.confidence > 0.7 and len(elem.text.strip()) > 2
+            ]
 
-        # Organize elements by page
-        for element in result.elements:
-            page_num = element.page_number
-            if page_num in pages_data:
-                if element.element_type.value == 'table':
-                    pages_data[page_num]['table_elements'].append({
-                        'text': element.text,
-                        'confidence': element.confidence,
-                        'bbox': element.bbox.to_dict() if element.bbox else None,
-                        'metadata': element.metadata
-                    })
-                else:
-                    pages_data[page_num]['text_elements'].append({
-                        'text': element.text,
-                        'confidence': element.confidence,
-                        'bbox': element.bbox.to_dict() if element.bbox else None,
-                        'metadata': element.metadata
-                    })
+            for element in high_quality_elements:
+                page_num = element.page_number
+                if page_num in pages_data:
+                    if element.element_type.value == 'table':
+                        pages_data[page_num]['table_elements'].append({
+                            'text': element.text,
+                            'confidence': element.confidence,
+                            'bbox': element.bbox.to_dict() if element.bbox else None,
+                            'metadata': element.metadata
+                        })
+                    else:
+                        pages_data[page_num]['text_elements'].append({
+                            'text': element.text,
+                            'confidence': element.confidence,
+                            'bbox': element.bbox.to_dict() if element.bbox else None,
+                            'metadata': element.metadata
+                        })
 
-                pages_data[page_num]['extracted_text'] += element.text + ' '
-                pages_data[page_num]['element_count'] += 1
+                    pages_data[page_num]['extracted_text'] += element.text + ' '
+                    pages_data[page_num]['element_count'] += 1
 
-        # Process each page
+            if not any(pages_data[p]['element_count'] > 0 for p in pages_data):
+                if result.extracted_text:
+                    text_chunks = self._split_text_by_pages(result.extracted_text, result.total_pages)
+                    for page_num, text_chunk in enumerate(text_chunks, 1):
+                        if page_num in pages_data:
+                            pages_data[page_num]['extracted_text'] = text_chunk
+                            pages_data[page_num]['element_count'] = 1
+                            pages_data[page_num]['confidence_avg'] = 0.9
+
         for page_num, page_data in pages_data.items():
-            # Calculate average confidence
             all_elements = page_data['text_elements'] + page_data['table_elements']
             if all_elements:
                 page_data['confidence_avg'] = sum(elem['confidence'] for elem in all_elements) / len(all_elements)
-
-            # Extract patterns with safety checks
+            elif page_data['extracted_text']:
+                page_data['confidence_avg'] = 0.9  # PDF text confidence
             if page_data['extracted_text'] and page_data['extracted_text'].strip():
                 try:
-                    # Fix: Check if pattern_processor exists and handle None results
                     if hasattr(self, 'pattern_processor') and self.pattern_processor:
                         page_patterns = self.pattern_processor.extract_patterns(page_data['extracted_text'])
                         page_data['structured_data'] = page_patterns if page_patterns else {}
                     else:
                         page_data['structured_data'] = {}
                 except Exception as e:
-                    logger.warning(f"Pattern extraction failed for page {page_num}: {e}")
+                    logger.debug(f"Pattern extraction failed for page {page_num}: {e}")
                     page_data['structured_data'] = {}
             else:
                 page_data['structured_data'] = {}
 
-            # Clean up text
             page_data['extracted_text'] = page_data['extracted_text'].strip()
             page_results.append(page_data)
 
         return page_results
 
-    def _split_text_by_pages(self, full_text: str, total_pages: int) -> List[str]:
-        """Roughly split text into page chunks"""
+    def _split_text_by_pages(self, full_text: str, total_pages: int, input_path=None) -> List[str]:
+        try:
+            if input_path:
+                pages_data = []
+                import pdfplumber
+                with pdfplumber.open(input_path) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text() or ""
+                        pages_data.append(page_text)
+                return pages_data
+        except:
+            pass
+
         if not full_text or total_pages <= 0:
             return [''] * total_pages
-
         chars_per_page = len(full_text) // total_pages
         chunks = []
 
@@ -422,11 +428,9 @@ class EnhancedPDFProcessor(PDFProcessor):
             start = i * chars_per_page
             end = (i + 1) * chars_per_page if i < total_pages - 1 else len(full_text)
             chunks.append(full_text[start:end])
-
         return chunks
 
     def _extract_all_pages_as_fallback(self, page_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Extract all pages when no keywords are found"""
         fallback_pages = []
 
         for page_data in page_results:
@@ -471,12 +475,10 @@ class EnhancedPDFProcessor(PDFProcessor):
         return list(found_keywords)
 
     def _convert_result_to_dict(self, result: ExtractionResult) -> Dict[str, Any]:
-        """Convert ExtractionResult to dictionary with error handling"""
         try:
             return result.to_dict()
         except Exception as e:
             logger.warning(f"Failed to convert result to dict: {e}, using fallback")
-            # Fallback conversion
             return {
                 'document_id': getattr(result, 'document_id', ''),
                 'filename': getattr(result, 'filename', ''),
@@ -526,7 +528,4 @@ class EnhancedPDFProcessor(PDFProcessor):
             'total_elements': sum(page['element_count'] for page in filtered_pages),
             'total_elements_in_filtered_pages': sum(page['element_count'] for page in filtered_pages)
         }
-
         return summary
-
-

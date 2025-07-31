@@ -4,6 +4,7 @@ import platform
 from typing import List, Dict, Any, Tuple, Optional
 import numpy as np
 import cv2
+from utils.text_utils import TextProcessor
 
 from ocr_engine.base import BaseOCREngine
 from core.models import ExtractedElement
@@ -166,8 +167,9 @@ class TesseractEngine(BaseOCREngine):
             text = data['text'][i].strip()
             conf = int(data['conf'][i]) if data['conf'][i] != '-1' else 0
 
-            if not self._is_valid_text(text, conf):
+            if not TextProcessor.is_valid_text(text, conf / 100.0):
                 continue
+            cleaned_text = TextProcessor.clean_text(text)
 
             bbox_data = {
                 'x': data['left'][i],
@@ -185,7 +187,7 @@ class TesseractEngine(BaseOCREngine):
             }
 
             element = self.create_element(
-                text=text,
+                text=cleaned_text,
                 bbox_data=bbox_data,
                 page_num=page_num,
                 confidence=conf / 100.0,

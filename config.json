@@ -1,5 +1,3 @@
 {
-  "ocr": {
-    "preferred_engine": "azure_ocr"
-  }
+  "ssl_verify": false
 }

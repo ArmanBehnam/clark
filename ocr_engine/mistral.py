@@ -227,21 +227,6 @@ class MistralOCREngine(BaseOCREngine):
 
         return elements
 
-    def extract_tables(self, image: np.ndarray, page_num: int) -> List[Dict[str, Any]]:
-        if not self.is_available():
-            return []
-
-        try:
-            elements = self._extract_text_impl(image, page_num)
-
-            tables = self._detect_tables_from_elements(elements, page_num)
-
-            return tables
-
-        except Exception as e:
-            logger.warning(f"Table extraction failed with Mistral: {e}")
-            return []
-
     def _detect_tables_from_elements(self, elements: List[ExtractedElement], page_num: int) -> List[Dict[str, Any]]:
 
         tables = []

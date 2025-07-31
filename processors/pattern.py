@@ -145,13 +145,9 @@ class DocumentPatternProcessor(PatternProcessor):
         seen = set()
 
         for result in results:
-            cleaned_result = self._clean_result(result)
+            cleaned_result = TextProcessor.clean_text(result)
 
-            # Add null/empty filtering
-            if (cleaned_result and
-                    cleaned_result.strip() and  # Remove whitespace-only
-                    cleaned_result not in ['null', 'None', ''] and
-                    len(cleaned_result) > 1 and
+            if (TextProcessor.is_valid_text(cleaned_result) and
                     cleaned_result.lower() not in seen):
                 cleaned.append(cleaned_result)
                 seen.add(cleaned_result.lower())

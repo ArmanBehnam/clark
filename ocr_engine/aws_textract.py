@@ -191,38 +191,6 @@ class AWSTextractEngine(BaseOCREngine):
 
         return elements
 
-    def extract_tables(self, image: np.ndarray, page_num: int) -> List[Dict[str, Any]]:
-        if not self.is_available():
-            return []
-
-        try:
-            processed_image = self._prepare_image_for_textract(image)
-            if processed_image is None:
-                return []
-
-            success, buffer = cv2.imencode('.png', processed_image)
-            if not success:
-                return []
-
-            image_bytes = buffer.tobytes()
-
-            if len(image_bytes) > 10 * 1024 * 1024:
-                return []
-
-            response = self._textract_client.analyze_document(
-                Document={'Bytes': image_bytes},
-                FeatureTypes=['TABLES']
-            )
-
-            tables = self._process_table_response(response, processed_image.shape, page_num)
-
-            logger.debug(f"AWS Textract extracted {len(tables)} tables from page {page_num}")
-            return tables
-
-        except Exception as e:
-            logger.warning(f"Table extraction failed with Textract: {e}")
-            return []
-
     def _process_table_response(self, response: Dict[str, Any],
                                 image_shape: Tuple[int, int], page_num: int) -> List[Dict[str, Any]]:
         tables = []

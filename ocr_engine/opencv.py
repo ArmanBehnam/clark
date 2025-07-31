@@ -226,56 +226,6 @@ class OpenCVEngine(BaseOCREngine):
         except:
             return 0.0
 
-    def detect_text_orientation(self, image: np.ndarray) -> Dict[str, Any]:
-        try:
-            gray = self._ensure_grayscale(image)
-
-            edges = self._cv2.Canny(gray, 50, 150)
-            lines = self._cv2.HoughLines(edges, 1, np.pi / 180, threshold=100)
-
-            if lines is not None:
-                angles = []
-                for line in lines:
-                    rho, theta = line[0]
-                    angle = theta * 180 / np.pi
-                    angles.append(angle)
-
-                if angles:
-                    angle_hist, _ = np.histogram(angles, bins=18, range=(0, 180))
-                    dominant_angle_idx = np.argmax(angle_hist)
-                    dominant_angle = dominant_angle_idx * 10
-
-                    return {
-                        'estimated_rotation': dominant_angle,
-                        'confidence': angle_hist[dominant_angle_idx] / len(angles),
-                        'method': 'hough_lines',
-                        'total_lines': len(lines)
-                    }
-
-            return {'estimated_rotation': 0, 'confidence': 0, 'method': 'hough_lines'}
-
-        except Exception as e:
-            logger.debug(f"Orientation detection failed: {e}")
-            return {'estimated_rotation': 0, 'confidence': 0, 'method': 'failed'}
-
-    def enhance_for_text_detection(self, image: np.ndarray) -> np.ndarray:
-        try:
-            gray = self._ensure_grayscale(image)
-
-            clahe = self._cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            enhanced = clahe.apply(gray)
-
-            kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
-            sharpened = self._cv2.filter2D(enhanced, -1, kernel)
-
-            denoised = self._cv2.medianBlur(sharpened, 3)
-
-            return denoised
-
-        except Exception as e:
-            logger.debug(f"Image enhancement failed: {e}")
-            return self._ensure_grayscale(image)
-
     def get_engine_info(self) -> Dict[str, Any]:
         info = {
             'engine_name': 'OpenCV Text Detection',
