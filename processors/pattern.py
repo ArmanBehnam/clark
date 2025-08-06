@@ -2,7 +2,7 @@ import re
 import logging
 from typing import Dict, List, Any, Optional, Set, Tuple
 from collections import defaultdict
-
+from utils.text_utils import TextProcessor
 from core.interfaces import PatternProcessor
 from core.models import DocumentType
 from core.exceptions import PatternExtractionError
@@ -516,6 +516,7 @@ class DocumentPatternProcessor(PatternProcessor):
         stats['match_density'] = total_matches / len(text.split()) if text.split() else 0
         
         return stats
+
 
 
 def create_pattern_processor() -> DocumentPatternProcessor:

@@ -262,6 +262,63 @@ class PDFProcessor(ProcessingPipeline):
 }
         }
 
+    def save_result(self, result: ExtractionResult, output_file: Path) -> None:
+        """Save extraction result to JSON file"""
+        try:
+            from exporters.json_exporter import JSONExporter
+            exporter = JSONExporter()
+            exporter.export(result, output_file)
+            logger.info(f"Results saved to: {output_file}")
+        except Exception as e:
+            logger.error(f"Failed to save result: {e}")
+            raise
+
+    def validate_configuration(self) -> Dict[str, Any]:
+        """Validate system configuration"""
+        try:
+            validation = {
+                'config_valid': True,
+                'config_issues': [],
+                'ocr_issues': {},
+                'recommendations': []
+            }
+
+            # Check OCR engines
+            available_engines = self.ocr_registry.get_available_engines()
+            if not available_engines:
+                validation['config_valid'] = False
+                validation['config_issues'].append("No OCR engines available")
+            else:
+                validation['recommendations'].append(f"{len(available_engines)} OCR engines available")
+
+            # Check credentials for preferred engine
+            preferred = self.config.get('ocr.preferred_engine', 'aws_textract')
+            if preferred == 'aws_textract':
+                if not self.config.get('ocr.aws_access_key_id'):
+                    validation['config_issues'].append("AWS credentials missing for Textract")
+            elif preferred == 'azure_ocr':
+                if not self.config.get('ocr.azure_api_key'):
+                    validation['config_issues'].append("Azure credentials missing")
+
+            # Check components
+            components = ['image_processor', 'pattern_processor', 'pdf_extractor']
+            for component in components:
+                if not hasattr(self, component) or not getattr(self, component):
+                    validation['config_issues'].append(f"Component not initialized: {component}")
+
+            if validation['config_issues']:
+                validation['config_valid'] = False
+
+            return validation
+
+        except Exception as e:
+            return {
+                'config_valid': False,
+                'config_issues': [f"Validation failed: {e}"],
+                'ocr_issues': {},
+                'recommendations': []
+            }
+
 
 class EnhancedPDFProcessor(PDFProcessor):
 
@@ -529,3 +586,241 @@ class EnhancedPDFProcessor(PDFProcessor):
             'total_elements_in_filtered_pages': sum(page['element_count'] for page in filtered_pages)
         }
         return summary
+
+    def save_enhanced_result(self, enhanced_result: Dict[str, Any], output_file: Path) -> None:
+        """Save enhanced extraction result to JSON file"""
+        try:
+            import json
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(enhanced_result, f, indent=2, ensure_ascii=False, default=str)
+            logger.info(f"Enhanced results saved to: {output_file}")
+        except Exception as e:
+            logger.error(f"Failed to save enhanced result: {e}")
+            raise
+
+
+    def save_filtered_pages_only(self, enhanced_result: Dict[str, Any], output_file: Path) -> None:
+        """Save only filtered pages to JSON file (lighter output)"""
+        try:
+            import json
+            filtered_output = {
+                'document_info': enhanced_result['document_info'],
+                'filtered_pages_only': []
+            }
+
+            for page in enhanced_result['filtered_pages']['matching_pages']:
+                minimal_page = {
+                    'page_number': page['page_number'],
+                    'extracted_text': page['extracted_text'],
+                    'matched_keywords': page.get('matched_keywords', []),
+                    'confidence_avg': page['confidence_avg'],
+                    'element_count': page['element_count'],
+                    'is_fallback': page.get('fallback_extraction', False),
+                    'structured_data': page.get('structured_data', {})
+                }
+                filtered_output['filtered_pages_only'].append(minimal_page)
+
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(filtered_output, f, indent=2, ensure_ascii=False, default=str)
+            logger.info(f"Filtered results saved to: {output_file}")
+        except Exception as e:
+            logger.error(f"Failed to save filtered result: {e}")
+            raise
+
+
+    def validate_enhanced_configuration(self) -> Dict[str, Any]:
+        """Validate enhanced processor configuration"""
+        try:
+            # Get base validation first
+            validation = self.validate_configuration()
+
+            # Add enhanced-specific validations
+            enhanced_issues = []
+            enhanced_recommendations = []
+
+            # Check keyword configuration
+            if not self.target_keywords:
+                enhanced_issues.append("No target keywords configured")
+                enhanced_recommendations.append("Add target keywords with add_custom_keywords()")
+            elif len(self.target_keywords) < 3:
+                enhanced_recommendations.append("Consider adding more keywords for better filtering")
+
+            # Check pattern processor
+            if not hasattr(self, 'pattern_processor') or not self.pattern_processor:
+                enhanced_issues.append("Pattern processor not initialized")
+            else:
+                try:
+                    # Test pattern extraction
+                    test_text = "STRUCTURAL STEEL NOTES AISC AISI"
+                    patterns = self.pattern_processor.extract_patterns(test_text)
+                    if not patterns:
+                        enhanced_issues.append("Pattern extraction not working")
+                    else:
+                        enhanced_recommendations.append(f"Pattern processor working - {len(patterns)} categories available")
+                except Exception as e:
+                    enhanced_issues.append(f"Pattern processor error: {e}")
+
+            # Update validation results
+            validation['enhanced_issues'] = enhanced_issues
+            validation['enhanced_recommendations'] = enhanced_recommendations
+            validation['target_keywords'] = self.target_keywords
+            validation['keyword_count'] = len(self.target_keywords)
+
+            if enhanced_issues:
+                validation['config_valid'] = False
+                validation['config_issues'].extend(enhanced_issues)
+
+            validation['recommendations'].extend(enhanced_recommendations)
+
+            return validation
+
+        except Exception as e:
+            return {
+                'config_valid': False,
+                'config_issues': [f"Enhanced validation failed: {e}"],
+                'enhanced_issues': [],
+                'enhanced_recommendations': [],
+                'target_keywords': [],
+                'keyword_count': 0
+            }
+
+
+    def get_enhanced_system_info(self) -> Dict[str, Any]:
+        """Get enhanced system information including keyword and pattern details"""
+        base_info = self.get_system_info()
+
+        enhanced_info = {
+            **base_info,
+            'enhanced_features': {
+                'keyword_filtering': True,
+                'page_level_analysis': True,
+                'fallback_extraction': True,
+                'contextual_analysis': True
+            },
+            'target_keywords': {
+                'default_keywords': self._get_target_keywords(),
+                'current_keywords': self.target_keywords,
+                'total_keywords': len(self.target_keywords)
+            },
+            'processing_modes': {
+                'keyword_filter': 'Extract only pages with target keywords',
+                'fallback_mode': 'Extract all pages if no keywords found',
+                'hybrid_analysis': 'Combine PDF text + OCR + patterns'
+            }
+        }
+
+        # Add pattern processor info if available
+        if hasattr(self, 'pattern_processor') and self.pattern_processor:
+            try:
+                if hasattr(self.pattern_processor, '_compiled_patterns'):
+                    pattern_info = {}
+                    for category, patterns in self.pattern_processor._compiled_patterns.items():
+                        pattern_info[category] = len(patterns)
+                    enhanced_info['pattern_categories'] = pattern_info
+                    enhanced_info['total_patterns'] = sum(pattern_info.values())
+            except Exception:
+                enhanced_info['pattern_categories'] = {}
+                enhanced_info['total_patterns'] = 0
+
+        return enhanced_info
+
+
+    def export_enhanced_summary(self, enhanced_result: Dict[str, Any], output_file: Path) -> None:
+        """Export a summary report of enhanced processing results"""
+        try:
+            summary = self.get_page_summary(enhanced_result)
+
+            report = {
+                'processing_summary': {
+                    'document_name': enhanced_result['document_info']['filename'],
+                    'total_pages': enhanced_result['document_info']['total_pages'],
+                    'processing_time': enhanced_result['document_info']['processing_time'],
+                    'overall_confidence': enhanced_result['document_info']['confidence'],
+                    'document_type': enhanced_result['document_info']['document_type']
+                },
+                'extraction_results': {
+                    'pages_processed': summary['pages_processed'],
+                    'pages_with_keywords': summary['pages_with_keywords'],
+                    'percentage_with_keywords': summary['percentage_with_keywords'],
+                    'extraction_method': summary['extraction_method'],
+                    'keywords_found': summary['keywords_found'],
+                    'average_confidence': summary['average_confidence']
+                },
+                'page_details': []
+            }
+
+            # Add page-by-page details
+            for page in enhanced_result['filtered_pages']['matching_pages']:
+                page_detail = {
+                    'page_number': page['page_number'],
+                    'keywords_matched': page.get('matched_keywords', []),
+                    'element_count': page['element_count'],
+                    'confidence': page['confidence_avg'],
+                    'text_length': len(page['extracted_text']),
+                    'has_structured_data': bool(page.get('structured_data', {}))
+                }
+
+                # Add pattern categories found
+                if page.get('structured_data'):
+                    page_detail['pattern_categories'] = list(page['structured_data'].keys())
+                    page_detail['pattern_count'] = len(page['structured_data'])
+
+                report['page_details'].append(page_detail)
+
+            # Save report
+            import json
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(report, f, indent=2, ensure_ascii=False, default=str)
+
+            logger.info(f"Enhanced summary exported to: {output_file}")
+
+        except Exception as e:
+            logger.error(f"Failed to export enhanced summary: {e}")
+            raise
+
+
+    def process_and_save_enhanced(self, input_path: Path, output_dir: Optional[Path] = None, **kwargs) -> Dict[str, Any]:
+        """Process document and automatically save all enhanced results"""
+        input_path = Path(input_path)
+
+        if output_dir is None:
+            output_dir = input_path.parent
+        else:
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Process the document
+        enhanced_result = self.process_with_page_results(input_path, **kwargs)
+
+        # Generate output filenames
+        base_name = input_path.stem
+        full_result_file = output_dir / f"{base_name}_enhanced_full.json"
+        filtered_result_file = output_dir / f"{base_name}_filtered_pages.json"
+        summary_file = output_dir / f"{base_name}_summary.json"
+
+        try:
+            # Save full enhanced results
+            self.save_enhanced_result(enhanced_result, full_result_file)
+
+            # Save filtered pages only (lighter file)
+            self.save_filtered_pages_only(enhanced_result, filtered_result_file)
+
+            # Save summary report
+            self.export_enhanced_summary(enhanced_result, summary_file)
+
+            logger.info(f"All enhanced results saved to: {output_dir}")
+
+            return {
+                'enhanced_result': enhanced_result,
+                'files_created': {
+                    'full_results': str(full_result_file),
+                    'filtered_pages': str(filtered_result_file),
+                    'summary': str(summary_file)
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to save enhanced results: {e}")
+            raise
+
+

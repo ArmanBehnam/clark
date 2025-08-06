@@ -122,44 +122,24 @@ class ExtractionPatterns:
 
     def _get_load_patterns(self) -> List[str]:
         return [
-            # Deflection Criteria
-            r'(?:Wall|Roof|Floor)\s*deflection[:\s]*L\s*/\s*(\d+)',
-            r'L\s*/\s*(240|360|480|600|720)',
-            r'deflection[:\s]*(\d+/\d+)["\s]*max',
-            r'(?:Story\s*drift|Δ)\s*limit[:\s]*h\s*/\s*(\d+)',
-            r'Primary\s*structure[:\s]*(\d+(?:/\d+)?)["\s]*max',
+            # Basic load values (should match your abbreviations)
+            r'PSF\s+POUNDS\s+PER\s+SQUARE\s+FOOT',
+            r'PSI\s+POUNDS\s+PER\s+SQUARE\s+INCH',
+            r'KSI\s+KIPS\s+PER\s+SQUARE\s+INCH',
+            r'KLF\s+KIPS\s+PER\s+LINEAR\s+FOOT',
+            r'KSF\s+KIPS\s+PER\s+SQUARE\s+FOOT',
 
-            # Wind Load Criteria
-            r'Basic\s*Wind\s*Speed[:\s]*(\d+)\s*mph',
-            r'(?:Risk\s*Category|Importance\s*Factor)[:\s]*([I]{1,4}|\d+\.\d+)',
-            r'Exposure\s*Category[:\s]*([A-D])',
-            r'Internal\s*Pressure\s*Coefficient[:\s]*(0\.\d+)',
-            r'Wind\s*Directionality\s*Factor[:\s]*(0\.\d+)',
-            r'(?:Topographic|Ground\s*Elevation)\s*Factor[:\s]*([K]?[a-z]*\s*=\s*\d+\.\d+)',
-            r'Gust-Effect\s*Factor[:\s]*(0\.\d+)',
-
-            # Gravity Loads
-            r'(?:Dead|Live)\s*Load[:\s]*(\d+(?:\.\d+)?)\s*(?:psf|PSF)',
-            r'(?:Roof|Floor)\s*(?:Dead|Live)\s*Load[:\s]*(\d+(?:\.\d+)?)\s*(?:psf|PSF)',
-
-            # Snow Load
-            r'(?:Ground|Flat\s*Roof)\s*Snow\s*Load[:\s]*(\d+(?:\.\d+)?)\s*(?:psf|PSF)',
-            r'Exposure\s*Factor[:\s]*(C[et]?\s*=\s*\d+\.\d+)',
-            r'Thermal\s*Factor[:\s]*(C[t]?\s*=\s*\d+\.\d+)',
-            r'Importance\s*Factor[:\s]*(I[s]?\s*=\s*\d+\.\d+)',
-
-            # Seismic Load
-            r'Seismic\s*Design\s*Category[:\s]*([A-F])',
-            r'Seismic\s*Importance\s*Factor[:\s]*(I[e]?\s*=\s*\d+\.\d+)',
-            r'Component\s*Importance\s*Factor[:\s]*(I[p]?\s*=\s*\d+\.\d+)',
-            r'Site\s*Class[:\s]*([A-F])',
-            r'(?:Spectral\s*acceleration|S[DS])[:\s]*(\d+\.\d+)',
-            r'(?:Design\s*spectral|S[D1])[:\s]*(\d+\.\d+)',
-            r'Response\s*modification\s*factor[:\s]*(R\s*=\s*\d+)',
-
-            # General Load Values
+            # Numerical load values
             r'(\d+(?:\.\d+)?)\s*(?:psf|PSF|kPa|psi|ksi|MPa)',
-            r'(\d+(?:\.\d+)?)\s*(?:lb|lbs|kN|plf|PLF|kN/m)'
+            r'(\d+(?:\.\d+)?)\s*(?:lb|lbs|kN|plf|PLF|kN/m)',
+
+            # Load specifications
+            r'(?:Dead|Live|Wind|Snow|Seismic)\s*Load[:\s]*(\d+(?:\.\d+)?)\s*(?:psf|PSF)',
+            r'Basic\s*Wind\s*Speed[:\s]*(\d+)\s*mph',
+
+            # Deflection criteria
+            r'L\s*/\s*(240|360|480|600|720)',
+            r'(?:Wall|Roof|Floor)\s*deflection[:\s]*L\s*/\s*(\d+)',
         ]
 
     def _get_structural_steel_patterns(self) -> List[str]:

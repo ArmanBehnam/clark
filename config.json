@@ -1,3 +1,16 @@
 {
-  "ssl_verify": false
+  "processing": {
+    "image_scale_factor": 6.0,
+    "image_enhancement_alpha": 2.2,
+    "image_enhancement_beta": 50
+  },
+  "ocr": {
+    "preferred_engine": "tesseract",
+    "tesseract_configs": [
+      "--psm 6 --oem 3",
+      "--psm 4 --oem 3",
+      "--psm 11 --oem 3",
+      "--psm 13 --oem 3"
+    ]
+  }
 }

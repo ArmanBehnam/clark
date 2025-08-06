@@ -1,6 +1,27 @@
 # PDF Processor v2.2 - Document Processing Engine
 
-A comprehensive, production-ready document processing system specifically designed for engineering and construction documents. Features multi-engine OCR with intelligent fallbacks, computer vision-based table detection, domain-specific pattern recognition, and advanced document analysis capabilities.
+A comprehensive, production-ready document processing system specifically designed for engineering and construction documents. 
+
+## About my Internship
+
+During my summer 2025 internship, I worked on developing "The Digestor" 
+an innovative AI-powered document processing system that leveraged multiple large language models for 
+construction document analysis. The core innovation was implementing an intelligent multi-engine OCR architecture 
+that dynamically switched between AWS Textract, Azure Document Intelligence, Claude OCR, and Tesseract based on 
+document complexity and confidence scores. 
+
+I integrated Claude's vision-language capabilities specifically for 
+technical document reasoning, enabling the system to understand engineering context and suggest technically 
+feasible parameter corrections when contract documents contained errors. The project featured advanced AI innovations 
+including domain-specific pattern recognition using 80+ regex patterns trained on construction terminology, 
+computer vision-based table detection with morphological operations, and automated confidence scoring that flagged 
+potentially inaccurate extractions. 
+
+I built sophisticated feedback loops where the system learned from CDES engineer 
+corrections to improve extraction accuracy by 10%+, while implementing conflict detection algorithms that could 
+identify inconsistencies across multiple contract documents. The AI pipeline included document classification models, 
+technical feasibility validation using engineering rules, and privacy-sensitive data routing to ensure secure 
+processing of confidential construction specifications.
 
 ## Get Results
 
@@ -9,8 +30,11 @@ A comprehensive, production-ready document processing system specifically design
 pip install -r requirements.txt
 
 # Configure AWS credentials (for Textract/Claude)
-export AWS_ACCESS_KEY_ID="your-key"
-export AWS_SECRET_ACCESS_KEY="your-secret"
+export AWS_ACCESS_KEY_ID="..."
+export AWS_SECRET_ACCESS_KEY="..."
+
+export AZURE_CLIENT_ID="..."
+export AZURE_CLIENT_SECRET="..." 
 ```
 
 ## Architecture Overview

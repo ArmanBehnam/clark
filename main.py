@@ -6,7 +6,6 @@ import json
 
 from utils.help import PDFProcessor, EnhancedPDFProcessor
 
-
 class MenuInterface:
     def __init__(self):
         self.processor = None
@@ -15,7 +14,7 @@ class MenuInterface:
 
     def display_banner(self):
         print("\n" + "="*60)
-        print("           CDE OCR v2.1")
+        print("           CDE OCR v2.2")
         print("           Let's Begin")
         print("="*60)
 
@@ -47,7 +46,7 @@ class MenuInterface:
                     print(f"Please enter a number between 1 and {max_choice}")
             except ValueError:
                 if user_input.endswith('.pdf') and ('\\' in user_input or '/' in user_input):
-                    print("💡 It looks like you entered a file path. Please select option 1 first, then enter the path.")
+                    print("It looks like you entered a file path. Please select option 1 first, then enter the path.")
                 else:
                     print("Please enter a valid number")
 
@@ -58,7 +57,6 @@ class MenuInterface:
         print("2. Browse current directory")
         print("3. Go back to main menu")
 
-        # choice = self.get_user_choice("Select option: ", 3)
         choice = self.get_user_choice("Select option: ", max_choice=12)
 
         if choice == 1:
@@ -129,7 +127,6 @@ class MenuInterface:
             return
 
         print(f"\nFull Processing: {self.current_pdf.name}")
-        print("─" * 50)
 
         print("Processing Options:")
         use_ocr = input("Enable OCR? (Y/n): ").strip().lower() != 'n'
@@ -152,7 +149,6 @@ class MenuInterface:
             elapsed_time = time.time() - start_time
 
             print(f"\nProcessing Complete ({elapsed_time:.2f}s)")
-            print("─" * 50)
             print(f"Confidence: {result.confidence:.2f}")
             print(f"Pages: {result.total_pages}")
             print(f"Text Elements: {len(result.elements)}")
@@ -186,14 +182,12 @@ class MenuInterface:
             return
 
         print(f"\nPhase 1 Processing: {self.current_pdf.name}")
-        print("─" * 50)
 
         use_ocr = input("Enable OCR? (Y/n): ").strip().lower() != 'n'
         extract_tables = input("Extract tables? (Y/n): ").strip().lower() != 'n'
         extract_patterns = input("Extract patterns? (Y/n): ").strip().lower() != 'n'
         enhance_images = input("Enhance images? (Y/n): ").strip().lower() != 'n'
 
-        # Custom keywords option
         add_custom = input("Add custom keywords? (Y/n): ").strip().lower() == 'y'
         if add_custom:
             custom_keywords_input = input("Enter keywords (comma-separated): ").strip()
@@ -217,7 +211,6 @@ class MenuInterface:
             elapsed_time = time.time() - start_time
 
             print(f"\nProcessing Completed ({elapsed_time:.2f}s)")
-            print("─" * 50)
 
             doc_info = enhanced_result['document_info']
             print(f"Document: {doc_info['filename']}")
@@ -226,7 +219,7 @@ class MenuInterface:
             print(f"Document Type: {doc_info['document_type']}")
 
             filtered_info = enhanced_result['filtered_pages']
-            print(f"\nRESULTS:")
+            print(f"\nResults:")
             print(f"Pages with target keywords: {filtered_info['total_matching_pages']}")
             print(f"Keywords found: {', '.join(filtered_info['keywords_found'])}")
 
@@ -268,7 +261,6 @@ class MenuInterface:
             return
 
         print(f"\nOCR Extraction: {self.current_pdf.name}")
-        print("─" * 50)
 
         try:
             print("Extracting text with OCR")
@@ -280,7 +272,6 @@ class MenuInterface:
             )
 
             print(f"\nOCR Completed")
-            print("─" * 30)
             print(f"Text Elements: {len(result.elements)}")
             print(f"Text Length: {len(result.extracted_text)} characters")
 
@@ -297,7 +288,6 @@ class MenuInterface:
             return
 
         print(f"\nTable Extraction: {self.current_pdf.name}")
-        print("─" * 50)
 
         try:
             print("Extracting tables")
@@ -309,7 +299,6 @@ class MenuInterface:
             )
 
             print(f"\nTable Extraction Completed")
-            print("─" * 35)
             print(f"Tables Found: {len(result.tables)}")
 
             if result.tables:
@@ -324,7 +313,6 @@ class MenuInterface:
             return
 
         print(f"\nPattern Extraction: {self.current_pdf.name}")
-        print("─" * 50)
 
         try:
             print("Extracting patterns")
@@ -336,7 +324,6 @@ class MenuInterface:
             )
 
             print(f"\nPattern Extraction Completed")
-            print("─" * 40)
             print(f"Categories Found: {len(result.structured_data)}")
 
             if result.structured_data:
@@ -351,7 +338,6 @@ class MenuInterface:
             return
 
         print(f"\nTesting Azure OCR: {self.current_pdf.name}")
-        print("─" * 50)
 
         try:
             start_time = time.time()
@@ -363,21 +349,13 @@ class MenuInterface:
             elapsed_time = time.time() - start_time
 
             print(f"\nAzure OCR Results ({elapsed_time:.2f}s)")
-            print("─" * 40)
             print(f"Confidence: {result.confidence:.2f}")
             print(f"Text Elements: {len(result.elements)}")
             print(f"Text Length: {len(result.extracted_text)}")
 
             if result.extracted_text:
                 preview = result.extracted_text[:300]
-                print(f"\nText Preview:\n{preview}")
-
-            try:
-                output_file = self.current_pdf.parent / f"{self.current_pdf.stem}_azure_result.json"
-                self.processor.save_result(result, output_file)
-                print(f"\nAzure results saved to: {output_file.name}")
-            except Exception as save_error:
-                print(f"Warning: Could not save Azure result: {save_error}")
+                print(f"\nText Preview:\n{preview}...")
 
         except Exception as e:
             print(f"Azure OCR failed: {e}")
@@ -387,7 +365,6 @@ class MenuInterface:
             return
 
         print(f"\nTesting Claude OCR: {self.current_pdf.name}")
-        print("─" * 50)
 
         try:
             start_time = time.time()
@@ -399,21 +376,13 @@ class MenuInterface:
             elapsed_time = time.time() - start_time
 
             print(f"\nClaude OCR Results ({elapsed_time:.2f}s)")
-            print("─" * 40)
             print(f"Confidence: {result.confidence:.2f}")
             print(f"Text Elements: {len(result.elements)}")
             print(f"Text Length: {len(result.extracted_text)}")
 
             if result.extracted_text:
                 preview = result.extracted_text[:300]
-                print(f"\nText Preview:\n{preview}")
-
-            try:
-                output_file = self.current_pdf.parent / f"{self.current_pdf.stem}_claude_result.json"
-                self.processor.save_result(result, output_file)
-                print(f"\nClaude results saved to: {output_file.name}")
-            except Exception as save_error:
-                print(f"Warning: Could not save Claude result: {save_error}")
+                print(f"\nText Preview:\n{preview}...")
 
         except Exception as e:
             print(f"Claude OCR failed: {e}")
@@ -421,7 +390,6 @@ class MenuInterface:
 
     def batch_processing(self):
         print("\nBatch Processing")
-        print("─" * 40)
 
         input_dir = input("Enter input directory path: ").strip().strip('"\'')
         if not os.path.exists(input_dir):
@@ -438,7 +406,6 @@ class MenuInterface:
             results = self.processor.process_batch(Path(input_dir), Path(output_dir))
 
             print(f"\nBatch Processing Completed")
-            print("─" * 40)
             print(f"Total Files: {results['total_files']}")
             print(f"Successful: {results['successful']}")
             print(f"Failed: {results['failed']}")
@@ -456,7 +423,6 @@ class MenuInterface:
             return
 
         print("\nSystem Information")
-        print("─" * 50)
 
         info = self.processor.get_system_info()
 
@@ -480,7 +446,6 @@ class MenuInterface:
             return
 
         print("\nConfiguration Validation")
-        print("─" * 50)
 
         try:
             validation = self.processor.validate_configuration()
@@ -500,7 +465,7 @@ class MenuInterface:
                         print(f"    - {issue}")
 
             if validation['recommendations']:
-                print(f"\n💡 Recommendations:")
+                print(f"\nRecommendations:")
                 for rec in validation['recommendations']:
                     print(f"  • {rec}")
 
@@ -542,7 +507,7 @@ class MenuInterface:
                 self.show_system_info()
             elif choice == 11:
                 self.validate_configuration()
-            elif choice == 12:  # Changed from 10
+            elif choice == 12:
                 print("\nThank you for your attention to this matter!")
                 sys.exit(0)
 
